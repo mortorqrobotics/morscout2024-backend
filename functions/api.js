@@ -120,7 +120,7 @@ router.get("/pitscout", async (req, res) => {
     console.log("Pit Scout Data:", pitScoutData);
 
     // Download as Excel
-    downloadExcel(pitScoutData, "pitscout.xlsx");
+    //downloadExcel(pitScoutData, "pitscout.xlsx");
 
     // Send data as JSON response
     res.json(pitScoutData);
@@ -185,7 +185,7 @@ router.get("/matchscout", async (req, res) => {
     console.log("Match Scout Data:", matchScoutData);
 
     // Download as Excel
-    downloadExcel(matchScoutData, "matchscout.xlsx");
+    // downloadExcel(matchScoutData, "matchscout.xlsx");
 
     // Send data as JSON response
     res.json(matchScoutData);
