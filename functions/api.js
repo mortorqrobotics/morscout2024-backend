@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const admin = require("firebase-admin");
+const db = require("./firebase")
 const excel = require("xlsx");
 const serverless = require("serverless-http");
 const app = express();
@@ -53,8 +53,7 @@ const submitScoutForm = async (req, res, scoutType, collectionName) => {
     const { teamNumber } = req.params;
     const { username, ...formFields } = req.body;
 
-    const teamDocRef = admin
-      .firestore()
+    const teamDocRef = db
       .collection(collectionName)
       .doc(teamNumber);
     const teamDoc = await teamDocRef.get();
@@ -124,7 +123,7 @@ const downloadExcel = (data, filename) => {
 
 router.get("/pitscout", async (req, res) => {
   try {
-    const pitScoutCollection = admin.firestore().collection("pitscout");
+    const pitScoutCollection = db.collection("pitscout");
 
     const pitScoutDocuments = await pitScoutCollection.listDocuments();
     const pitScoutData = [];
@@ -154,7 +153,7 @@ router.get("/pitscout", async (req, res) => {
 
 router.get("/matchscout", async (req, res) => {
   try {
-    const matchScoutCollection = admin.firestore().collection("matchscout");
+    const matchScoutCollection = db.collection("matchscout");
     const matchScoutDocuments = await matchScoutCollection.listDocuments();
     const matchScoutData = await getMatchScoutData(matchScoutDocuments);
     res.json(matchScoutData);
@@ -166,7 +165,7 @@ router.get("/matchscout", async (req, res) => {
 
 router.get("/teleopscout", async (req, res) => {
   try {
-    const matchScoutCollection = admin.firestore().collection("matchscout");
+    const matchScoutCollection = db.collection("matchscout");
     const matchScoutDocuments = await matchScoutCollection.listDocuments();
     const matchScoutData = await getMatchScoutData(matchScoutDocuments, "teleopscout");
 
@@ -179,7 +178,7 @@ router.get("/teleopscout", async (req, res) => {
 
 router.get("/autoscout", async (req, res) => {
   try {
-    const matchScoutCollection = admin.firestore().collection("matchscout");
+    const matchScoutCollection = db.collection("matchscout");
     const matchScoutDocuments = await matchScoutCollection.listDocuments();
     const matchScoutData = await getMatchScoutData(matchScoutDocuments, "autoscout");
 
@@ -193,8 +192,8 @@ router.get("/autoscout", async (req, res) => {
 
 router.get("/all-scout-instances", async (req, res) => {
   try {
-    const pitScoutCollection = admin.firestore().collection("pitscout");
-    const matchScoutCollection = admin.firestore().collection("matchscout");
+    const pitScoutCollection = db.collection("pitscout");
+    const matchScoutCollection = db.collection("matchscout");
 
     const pitScoutDocuments = await pitScoutCollection.listDocuments();
     const matchScoutDocuments = await matchScoutCollection.listDocuments();
