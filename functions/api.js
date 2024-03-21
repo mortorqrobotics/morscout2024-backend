@@ -5,7 +5,6 @@ const excel = require("xlsx");
 const serverless = require("serverless-http");
 const app = express();
 const router = express.Router();
-const serviceAccount = require("./serviceAccount.json");
 
 async function getMatchScoutData(documents, part = "") {
   let matchScoutData = [];
@@ -48,9 +47,6 @@ async function getMatchScoutData(documents, part = "") {
   return matchScoutData;
 }
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
 
 const submitScoutForm = async (req, res, scoutType, collectionName) => {
   try {
