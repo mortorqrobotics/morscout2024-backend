@@ -12,7 +12,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon index.js",
+    "start": "nodemon functions/api.js",
     "build": "netlify deploy --prod"
   },
   "keywords": [],

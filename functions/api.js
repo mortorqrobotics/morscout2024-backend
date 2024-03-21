@@ -2,11 +2,52 @@ const express = require("express");
 const cors = require("cors");
 const admin = require("firebase-admin");
 const excel = require("xlsx");
-const serverless = require('serverless-http')
+const serverless = require("serverless-http");
 const app = express();
-const router = express.Router()
-
+const router = express.Router();
 const serviceAccount = require("./serviceAccount.json");
+
+async function getMatchScoutData(documents, part = "") {
+  let matchScoutData = [];
+
+  for (const document of documents) {
+    const documentRef = await document.get();
+    const matchscout = documentRef.data();
+
+    const autoscout = matchscout.autoscout || {};
+    const teleopscout = matchscout.teleopscout || {};
+
+    const addEntries = (scoutType, scoutData) => {
+      for (const submissionKey in scoutData) {
+        const submissionData = scoutData[submissionKey];
+        const username = Object.keys(submissionData)[0];
+        matchScoutData.push({
+          teamNumber: document.id,
+          ...submissionData[username],
+          username: username,
+          scoutType: scoutType,
+          submissionKey: submissionKey,
+        });
+      }
+    };
+    if (part === "") {
+      addEntries("teleopscout", teleopscout);
+      addEntries("autoscout", autoscout);
+    } else if (part === "autoscout") {
+      addEntries("autoscout", autoscout);
+    } else if (part === "teleopscout") {
+      addEntries("teleopscout", teleopscout);
+    }
+  }
+  matchScoutData.sort((a, b) => {
+    if (a.teamNumber !== b.teamNumber)
+      return a.teamNumber.localeCompare(b.teamNumber);
+    if (a.username !== b.username) return a.username.localeCompare(b.username);
+    return a.scoutType.localeCompare(b.scoutType);
+  });
+  return matchScoutData;
+}
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
@@ -16,7 +57,10 @@ const submitScoutForm = async (req, res, scoutType, collectionName) => {
     const { teamNumber } = req.params;
     const { username, ...formFields } = req.body;
 
-    const teamDocRef = admin.firestore().collection(collectionName).doc(teamNumber);
+    const teamDocRef = admin
+      .firestore()
+      .collection(collectionName)
+      .doc(teamNumber);
     const teamDoc = await teamDocRef.get();
 
     if (teamDoc.exists) {
@@ -64,14 +108,15 @@ router.post("/submit-pitscout/:teamNumber", async (req, res) => {
 });
 
 const downloadExcel = (data, filename) => {
-  const rearrangedData = data.map(entry => {
+  const rearrangedData = data.map((entry) => {
     const { username, ...rest } = entry;
     const { submissionKey, ...fieldsExceptSubmissionKey } = rest;
     return { username, ...fieldsExceptSubmissionKey, submissionKey };
   });
 
   rearrangedData.sort((a, b) => {
-    if (a.teamNumber !== b.teamNumber) return a.teamNumber.localeCompare(b.teamNumber);
+    if (a.teamNumber !== b.teamNumber)
+      return a.teamNumber.localeCompare(b.teamNumber);
     return a.username.localeCompare(b.username);
   });
 
@@ -99,7 +144,7 @@ router.get("/pitscout", async (req, res) => {
           teamNumber: document.id,
           submissionKey: submissionKey,
           ...submissionData[username],
-          username: username
+          username: username,
         });
       }
     }
@@ -114,45 +159,20 @@ router.get("/pitscout", async (req, res) => {
 router.get("/matchscout", async (req, res) => {
   try {
     const matchScoutCollection = admin.firestore().collection("matchscout");
-
     const matchScoutDocuments = await matchScoutCollection.listDocuments();
-    let matchScoutData = [];
+    const matchScoutData = await getMatchScoutData(matchScoutDocuments);
+    res.json(matchScoutData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: "Internal Server Error" });
+  }
+});
 
-    for (const document of matchScoutDocuments) {
-      const documentRef = await document.get();
-      const matchscout = documentRef.data();
-
-      const autoscout = matchscout.autoscout || {};
-      const teleopscout = matchscout.teleopscout || {};
-
-      const addEntries = (scoutType, scoutData) => {
-        for (const submissionKey in scoutData) {
-          const submissionData = scoutData[submissionKey];
-          const username = Object.keys(submissionData)[0];
-          matchScoutData.push({
-            teamNumber: document.id,
-            ...submissionData[username],
-            username: username,
-            scoutType: scoutType,
-            submissionKey: submissionKey
-          });
-        }
-      };
-
-      addEntries('autoscout', autoscout);
-      addEntries('teleopscout', teleopscout);
-    }
-
-    matchScoutData.sort((a, b) => {
-      if (a.teamNumber !== b.teamNumber) return a.teamNumber.localeCompare(b.teamNumber);
-      if (a.username !== b.username) return a.username.localeCompare(b.username);
-      return a.scoutType.localeCompare(b.scoutType);
-    });
-
-    matchScoutData = matchScoutData.map(entry => {
-      const { submissionKey, ...rest } = entry;
-      return { ...rest, submissionKey };
-    });
+router.get("/teleopscout", async (req, res) => {
+  try {
+    const matchScoutCollection = admin.firestore().collection("matchscout");
+    const matchScoutDocuments = await matchScoutCollection.listDocuments();
+    const matchScoutData = await getMatchScoutData(matchScoutDocuments, "teleopscout");
 
     res.json(matchScoutData);
   } catch (error) {
@@ -160,6 +180,21 @@ router.get("/matchscout", async (req, res) => {
     res.status(500).json({ success: false, error: "Internal Server Error" });
   }
 });
+
+router.get("/autoscout", async (req, res) => {
+  try {
+    const matchScoutCollection = admin.firestore().collection("matchscout");
+    const matchScoutDocuments = await matchScoutCollection.listDocuments();
+    const matchScoutData = await getMatchScoutData(matchScoutDocuments, "autoscout");
+
+    res.json(matchScoutData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: "Internal Server Error" });
+  }
+});
+
+
 router.get("/all-scout-instances", async (req, res) => {
   try {
     const pitScoutCollection = admin.firestore().collection("pitscout");
@@ -183,7 +218,7 @@ router.get("/all-scout-instances", async (req, res) => {
           submissionKey,
           ...submissionData[username],
           username,
-          scoutType: 'pitscout'
+          scoutType: "pitscout",
         });
       }
     }
@@ -204,13 +239,13 @@ router.get("/all-scout-instances", async (req, res) => {
             submissionKey,
             ...submissionData[username],
             username,
-            scoutType
+            scoutType,
           });
         }
       };
 
-      checkScoutInstances(autoscout, 'autoscout');
-      checkScoutInstances(teleopscout, 'teleopscout');
+      checkScoutInstances(autoscout, "autoscout");
+      checkScoutInstances(teleopscout, "teleopscout");
     }
 
     res.json({ pitScoutInstances, matchScoutInstances });
@@ -219,7 +254,6 @@ router.get("/all-scout-instances", async (req, res) => {
     res.status(500).json({ success: false, error: "Internal Server Error" });
   }
 });
-
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
@@ -230,5 +264,5 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/.netlify/functions/api", router)
+app.use("/.netlify/functions/api", router);
 module.exports.handler = serverless(app);
